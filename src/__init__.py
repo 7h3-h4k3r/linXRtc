@@ -1,0 +1,2 @@
+class linxRTCEx(Exception):
+    pass

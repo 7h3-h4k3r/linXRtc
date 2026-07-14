@@ -1,0 +1,7 @@
+Process Kill Bash script |  DONE
+
+Get connection from Client | DONE
+Get recv Login packet user authentication |DONE
+set Middleware packet_type == type:
+    -callback() 
+
