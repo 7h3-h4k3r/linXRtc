@@ -9,11 +9,14 @@ fi
 
 echo "checking the port ${PORT}...."
 
-PID=$(lsof -t -i :"${PORT}")
+PIDS=$(lsof -t -i :"${PORT}")
 
-if [[ -n "$PID" ]];then
-    echo "Found process ${PID} on port ${PORT}. Killing it ..."
-    kill -9 "$PID"
+if [[ -n "$PIDS" ]];then
+    for PID in $PIDS;do
+        echo "Killing PID : $PID"
+        kill -9 "$PID"
+    done
+        
 else
     echo "Port is already free"
 fi

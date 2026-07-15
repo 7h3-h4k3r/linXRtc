@@ -1,7 +1,13 @@
 import struct
 import zlib
 from . import linxRTCEx
-from .Clienthandle import Clienthandle
+from .Session import Session
+
+PROTO_MAGIC_NUMBER = 0x737269
+VERSION = 1
+FLAGS = 0
+CONN_SYN =0X01
+CONN_ACK = 0X02
 
 class linxrtc:
 
@@ -22,8 +28,19 @@ class linxrtc:
             return payload
 
     
+    @staticmethod
+    def authentication_ack_send(conn):
+        header = struct.pack(
+            "!H",
+            CONN_ACK
+        )
+
+        conn.sendall(header)
+
+
+    
     @staticmethod 
-    def authentication(conn,addr):
+    def authentication_syn(conn,addr):
         header = conn.recv(13)
         payload = None
         try:
@@ -48,5 +65,13 @@ class linxrtc:
         password = payload[offset:offset+password_len].decode()
        
         if username == 'admin' and password == '1234':
-            Clienthandle(conn,addr).run()
+            linxrtc.authentication_ack_send(conn)
+            print("login success")
+            return Session.set(username,conn,addr)
+                
+        else:
+            raise linxRTCEx('invalid credentials')
+            
+
+
             

@@ -1,6 +1,6 @@
 import socket
 from .Clienthandle import Clienthandle
-from .linxrtc import linxrtc
+
 
 class linxSockEx(Exception):
     pass
@@ -33,11 +33,9 @@ class linxSock:
         while True:
             
             conn ,addr = self.server.accept()
-                # Clienthandle(conn,addr).start()
-                
-
+            
             print(f"[*] Client connection to the server {addr[0]}-{addr[1]}")
-            linxrtc.authentication(conn,addr)
+            Clienthandle(conn,addr).start()
            
         self.server.close()
 

@@ -1,35 +1,38 @@
 import threading 
+from .linxrtc import linxrtc
 
-Clients = []
-
+Clients = {}
 
 class Clienthandle(threading.Thread):
 
     def __init__(self,conn,addr):
-        super().__init__()
+        super().__init__(daemon=True)
         self.conn = conn 
         self.addr = addr 
+        
+    def in_conn(self,session):
+        username = session.username
+        if username in Clients:
+            Clients[username].conn.close()
+        else:
+            Clients[username] = session
 
-
-
-    def setClient(self):
-        Client.append(
-            {
-                'conn':conn,
-                'addr':addr
-            }
-        )
-
-    
 
     def run(self):
+        try:
+            session = linxrtc.authentication_syn(self.conn,self.addr)
+            print(session)
+            self.in_conn(session)
+            print(Clients)
 
-        while True:
+            while session.autharized:
             
-            data = self.conn.recv(1024)
+                data = self.conn.recv(1024)
+                print(data.decode())
+                if not data:
+                    break
 
-            if not data:
-                break
+        except Exception as e:
+            print("connection close",str(e))
+            self.conn.close()
             
-        self.conn.close()
-        
