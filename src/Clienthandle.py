@@ -1,5 +1,7 @@
 import threading 
 from .linxrtc import linxrtc
+from . import linxRTCEx
+import socket
 
 Clients = {}
 
@@ -13,26 +15,42 @@ class Clienthandle(threading.Thread):
     def in_conn(self,session):
         username = session.username
         if username in Clients:
-            Clients[username].conn.close()
-        else:
-            Clients[username] = session
+            old = Clients[username]
+            old.autharized = False
+            try:
+
+                old.conn.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass 
+            old.conn.close()
+            
+        Clients[username] = session
 
 
     def run(self):
+        session = None
         try:
             session = linxrtc.authentication_syn(self.conn,self.addr)
-            print(session)
+  
             self.in_conn(session)
-            print(Clients)
-
+  
             while session.autharized:
             
-                data = self.conn.recv(1024)
-                print(data.decode())
-                if not data:
-                    break
-
+                raw_data = self.conn.recv(1024)
+                
+                if not raw_data:
+                    raise linxRTCEx("Bad request")
+                print('packet reciving....')
+                print(raw_data)
+                linxrtc.w_route(self.conn)
+        except KeyboardInterrupt:
+            raise
         except Exception as e:
-            print("connection close",str(e))
+            print("Client Error",str(e))
+        
+        finally:
+            if session:
+                if Clients.get(session.username) is session:
+                    del Clients[session.username]
             self.conn.close()
             
