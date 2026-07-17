@@ -1,9 +1,8 @@
 import threading 
 from .linxrtc import linxrtc
-from . import linxRTCEx
+from . import linxRTCEx ,Clients
 import socket
 
-Clients = {}
 
 class Clienthandle(threading.Thread):
 
@@ -35,14 +34,7 @@ class Clienthandle(threading.Thread):
             self.in_conn(session)
   
             while session.autharized:
-            
-                raw_data = self.conn.recv(1024)
-                
-                if not raw_data:
-                    raise linxRTCEx("Bad request")
-                print('packet reciving....')
-                print(raw_data)
-                linxrtc.w_route(self.conn)
+                linxrtc.w_route(self.conn,session.username)
         except KeyboardInterrupt:
             raise
         except Exception as e:

@@ -1,84 +1,44 @@
-import struct
-import zlib
-from . import linxRTCEx
+from . import linxRTCEx ,Clients
 from .Session import Session
+from lib.Packetconfig import Packet
 
-PROTO_MAGIC_NUMBER = 0x737269
-VERSION = 1
-FLAGS = 0
 CONN_SYN =0X01
 CONN_ACK = 0X02
 GMSG = 0x03
-HEADER_FORMAT = "!IBBBII"
-HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
-
-
 
 class linxrtc:
 
+
     @staticmethod
-    def send_packet(sock, packet_type, payload, flags=0):
-        checksum = zlib.crc32(payload)
+    def broadcast_message(payload,username):
+        # offset = 0
 
-        header = struct.pack(
-            HEADER_FORMAT,
-            PROTO_MAGIC_NUMBER,
-            VERSION,
-            packet_type,
-            flags,
-            len(payload),
-            checksum
-        )
+        # msg_length = payload[offset]
+        # msg =   payload[offset:offset+msg_length].decode()
 
-        sock.sendall(header + payload)
-    @staticmethod
-    def recv_exact(sock,size):
-
-        data = b""
-        
-        while len(data) < size:
+        for client_username in Clients:
             
-            chunk = sock.recv(size - len(data))
-        
-            if not chunk:
-                raise linxRTCEx('Connection Error')
-            
-            data += chunk 
-        
-        return data 
-    
-    @staticmethod
-    def recv_packet(sock,gtype=False):
-        print('packet unpack')
-        header = linxrtc.recv_exact(sock,HEADER_SIZE)
+            if client_username != username:
+                Clients[client_username].conn.sendall("broadcast-msg-test".encode())
+             
 
-        magic, version, packet_type, flags, length, checksum = struct.unpack(
-        HEADER_FORMAT,
-        header
-        )
-
-        if PROTO_MAGIC_NUMBER != magic:
-            raise ValueError("invalid magic number")
-
-        payload = linxrtc.recv_exact(sock,length)
-
-        if zlib.crc32(payload) != checksum:
-            raise ValueError('Checksum failed')
-
-        if gtype:
-
-            return packet_type,payload
-        else:
-            return payload
-   
     @staticmethod 
-    def w_route(conn):
-        gtype , payload = linxrtc.recv_packet(conn,gtype=True)
+    def w_route(conn,username):
+        session = Clients[username]
+        
+        if not session.autharized:
+            raise linxRTCEx('Bad request')
+        
+        gtype , payload = Packet.recv_packet(conn,gtype=True)
+        
+        if gtype == 3:
+            linxrtc.broadcast_message(payload,username)
         print(payload,gtype)
     
+
     @staticmethod
     def authentication_ack_send(conn):
-       linxrtc.send_packet(conn, CONN_ACK, b"")
+       Packet.send_packet(conn, CONN_ACK, b"")
 
    
 
@@ -87,7 +47,7 @@ class linxrtc:
         
         payload = None
         try:
-            payload = linxrtc.recv_packet(conn)
+            payload = Packet.recv_packet(conn)
           
         except Exception as e:
             conn.close()

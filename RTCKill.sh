@@ -20,3 +20,6 @@ if [[ -n "$PIDS" ]];then
 else
     echo "Port is already free"
 fi
+
+sleep 1
+clear
