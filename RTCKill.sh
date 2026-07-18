@@ -23,3 +23,14 @@ fi
 
 sleep 1
 clear
+
+for i in {1..100};do
+    python3 main.py
+    if [[ $? -eq 0 ]];then
+        echo "Server started successfully"
+        break
+    else
+        echo "Server failed to start, retrying... ($i/100)"
+    fi
+    sleep 1
+done

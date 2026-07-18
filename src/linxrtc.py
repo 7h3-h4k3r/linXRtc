@@ -1,5 +1,6 @@
 from . import linxRTCEx ,Clients
 from .Session import Session
+import struct
 from lib.Packetconfig import Packet
 
 CONN_SYN =0X01
@@ -11,15 +12,23 @@ class linxrtc:
 
     @staticmethod
     def broadcast_message(payload,username):
-        # offset = 0
+        offset = 0
 
-        # msg_length = payload[offset]
-        # msg =   payload[offset:offset+msg_length].decode()
+        msg_length = payload[offset]
+        offset += 1
+        msg = payload[offset:offset+msg_length].decode()
+
+        encode_msg = f"{username}:{msg}"
+
+
+        payload = (
+            struct.pack("!B", len(encode_msg)) +
+            encode_msg.encode()
+        )
 
         for client_username in Clients:
-            
             if client_username != username:
-                Clients[client_username].conn.sendall("broadcast-msg-test".encode())
+                Packet.send_packet(Clients[client_username].conn,GMSG,payload)
              
 
     @staticmethod 
@@ -67,7 +76,7 @@ class linxrtc:
 
         password = payload[offset:offset+password_len].decode()
        
-        if ((username == 'admin' or username == 'nimki') and password == '1234'):
+        if ((username == 'admin' or username == 'nimki' or username == 'narso') and password == '1234'):
             linxrtc.authentication_ack_send(conn)
             return Session.set(username,conn,addr)
                 
