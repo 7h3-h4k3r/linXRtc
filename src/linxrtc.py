@@ -76,7 +76,7 @@ class linxrtc:
 
         password = payload[offset:offset+password_len].decode()
        
-        if ((username == 'admin' or username == 'nimki' or username == 'narso') and password == '1234'):
+        if ((username == 'admin' or username == 'nimki' or username == 'narso') and (password == '1234' or password == 'pass@123')):
             linxrtc.authentication_ack_send(conn)
             return Session.set(username,conn,addr)
                 
