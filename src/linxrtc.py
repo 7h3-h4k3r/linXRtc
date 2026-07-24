@@ -2,13 +2,31 @@ from . import linxRTCEx ,Clients
 from .Session import Session
 import struct
 from lib.Packetconfig import Packet
-
+import threading
 CONN_SYN =0X01
 CONN_ACK = 0X02
 GMSG = 0x03
+COUNT_CONN = 0x56
 
+event = threading.Event()
+
+def broadcast_connection():
+
+    payload = struct.pack("!B", len(Clients))
+    for client in Clients:
+        Packet.send_packet(Clients[client].conn,COUNT_CONN, payload)
+
+def boradcast_event():
+    while True:
+        print('waiting for a event....')
+        event.wait()
+        event.clear()
+        print('Client list changed')
+        broadcast_connection()
 class linxrtc:
 
+    def __init__(self):
+        threading.Thread(target=boradcast_event,daemon=True).start()
 
     @staticmethod
     def broadcast_message(payload,username):
@@ -78,6 +96,7 @@ class linxrtc:
        
         if ((username == 'admin' or username == 'nimki' or username == 'narso') and (password == '1234' or password == 'pass@123')):
             linxrtc.authentication_ack_send(conn)
+            event.set()
             return Session.set(username,conn,addr)
                 
         else:

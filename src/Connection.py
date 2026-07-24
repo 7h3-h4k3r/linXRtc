@@ -1,6 +1,8 @@
 import socket
 from .Clienthandle import Clienthandle
+from .linxrtc import linxrtc
 
+linxrtc()
 
 class linxSockEx(Exception):
     pass
@@ -29,7 +31,7 @@ class linxSock:
     def run(self):  
 
         self.__set_socket()
-
+        
         while True:
             
             conn ,addr = self.server.accept()
