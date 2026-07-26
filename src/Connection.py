@@ -2,7 +2,7 @@ import socket
 from .Clienthandle import Clienthandle
 from .linxrtc import linxrtc
 
-linxrtc()
+
 
 class linxSockEx(Exception):
     pass

@@ -2,31 +2,25 @@ from . import linxRTCEx ,Clients
 from .Session import Session
 import struct
 from lib.Packetconfig import Packet
-import threading
+from .getCount import BroadCastCount 
+
 CONN_SYN =0X01
 CONN_ACK = 0X02
 GMSG = 0x03
 COUNT_CONN = 0x56
+PONG=0x58
+PING=0X57
+SET_LATANCY=0X59
 
-event = threading.Event()
+broad_cast_count = BroadCastCount()
+broad_cast_count.start()  
 
-def broadcast_connection():
 
-    payload = struct.pack("!B", len(Clients))
-    for client in Clients:
-        Packet.send_packet(Clients[client].conn,COUNT_CONN, payload)
-
-def boradcast_event():
-    while True:
-        print('waiting for a event....')
-        event.wait()
-        event.clear()
-        print('Client list changed')
-        broadcast_connection()
 class linxrtc:
-
-    def __init__(self):
-        threading.Thread(target=boradcast_event,daemon=True).start()
+    @staticmethod
+    def send_latency_message(username):
+        print('i am sending latacny ',username)
+        Packet.send_packet(Clients[username].conn,PONG,b"")
 
     @staticmethod
     def broadcast_message(payload,username):
@@ -60,6 +54,8 @@ class linxrtc:
         
         if gtype == 3:
             linxrtc.broadcast_message(payload,username)
+        elif gtype == PING:
+            linxrtc.send_latency_message(username)
         print(payload,gtype)
     
 
@@ -96,11 +92,13 @@ class linxrtc:
        
         if ((username == 'admin' or username == 'nimki' or username == 'narso') and (password == '1234' or password == 'pass@123')):
             linxrtc.authentication_ack_send(conn)
-            event.set()
+            broad_cast_count.notify()
             return Session.set(username,conn,addr)
                 
         else:
+            broad_cast_count.stop()
             raise linxRTCEx('invalid credentials')
+
             
 
 

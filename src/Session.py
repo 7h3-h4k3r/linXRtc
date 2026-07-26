@@ -9,6 +9,8 @@ class Session:
         self.autharized = True
         self.conn = conn
         self.addr = addr
+        self.last_ping = 0
+        self.next_ping = 0
 
     @staticmethod
     def set(username,conn,addr):
