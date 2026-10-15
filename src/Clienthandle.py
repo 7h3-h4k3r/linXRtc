@@ -1,8 +1,9 @@
 import threading 
-from .linxrtc import linxrtc
-from . import linxRTCEx ,Clients
+from .linxrtc import linxrtc , U_JOIN,I_KEYS
+from . import linxRTCEx ,Clients, public_keys
+from lib.Packetconfig  import Packet
 import socket
-
+import json
 
 class Clienthandle(threading.Thread):
 
@@ -17,7 +18,6 @@ class Clienthandle(threading.Thread):
             old = Clients[username]
             old.autharized = False
             try:
-
                 old.conn.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass 
@@ -30,9 +30,15 @@ class Clienthandle(threading.Thread):
         session = None
         try:
             session = linxrtc.authentication_syn(self.conn,self.addr)
-  
+
+            if not session or not getattr(session, "autharized", False):
+                print(f"Authentication failed for {self.addr}")
+                return
+
             self.in_conn(session)
-  
+
+            linxrtc.broadcast_message(session.public_key.encode(),session.username,U_JOIN)
+            Packet.send_packet(self.conn,I_KEYS,json.dumps({"keys": public_keys}).encode())
             while session.autharized:
                 linxrtc.w_route(self.conn,session.username)
         except KeyboardInterrupt:
@@ -41,8 +47,14 @@ class Clienthandle(threading.Thread):
             print("Client Error",str(e))
         
         finally:
-            if session:
-                if Clients.get(session.username) is session:
-                    del Clients[session.username]
-            self.conn.close()
+            username = getattr(session, "username", None)
+            if username and Clients.get(username) is session:
+                del Clients[username]
+                print(f"Cleaned up session for {username}")
+            
+            try:
+                print('Connection closed')
+                self.conn.close()
+            except Exception:
+                pass
             
