@@ -2,7 +2,9 @@ from . import linxRTCEx ,Clients
 from .Session import Session
 import struct
 from lib.Packetconfig import Packet
+import json
 from .getCount import BroadCastCount 
+from . import public_keys
 
 CONN_SYN =0X01
 CONN_ACK = 0X02
@@ -44,28 +46,28 @@ class linxrtc:
         for client_username in Clients:
             if client_username != username:
                 Packet.send_packet(Clients[client_username].conn,state,payload)
-
+    
     @staticmethod
-    def send_shared_key(username: str, enc_key: bytes) -> bytes:
-        encoded_user = username.encode("utf-8")
+    def send_shared_key(sender_name: str, target_user: str, enc_key: bytes) -> bool:
+        encoded_sender = sender_name.encode("utf-8")
         
-        if len(encoded_user) > 255:
-            raise ValueError("Username cannot exceed 255 bytes.")
+        if len(encoded_sender) > 255:
+            raise ValueError("Sender username cannot exceed 255 bytes.")
         if len(enc_key) > 65535:
-            raise ValueError("Payload size cannot exceed 65535 bytes.")
+            raise ValueError("Key size cannot exceed 65535 bytes.")
 
+        # 4-byte header: version (1B), sender_name_len (1B), key_len (2B)
         header = struct.pack("!BBH", 
-            1,
-            len(encoded_user),
+            1, 
+            len(encoded_sender), 
             len(enc_key)
         )
 
-        packet = header + encoded_user + enc_key
+        packet = header + encoded_sender + enc_key
 
-        Packet.send_packet(Clients[username].conn,RECV_GROUP_KEY,packet)
-        
+        # Send to target client's connection
+        Packet.send_packet(Clients[target_user].conn, RECV_GROUP_KEY, packet)
         return True
-
     @staticmethod
     def get_user_and_pubkey(payload: bytes):
         name_len = payload[0]
@@ -94,9 +96,15 @@ class linxrtc:
         elif gtype == PING:
             linxrtc.send_latency_message(username)
         elif gtype == SHARE_GROUP_KEY:
-            c_username , pub_key = linxrtc.get_user_and_pubkey(payload)
-            if (linxrtc.send_shared_key(c_username,payload)):
-                print('i am sending my shared key to other user sender{} recv {} '.format(username,c_username))
+            target_user , enc_key = linxrtc.get_user_and_pubkey(payload)
+            
+            if target_user in Clients:
+                linxrtc.send_shared_key(
+                    sender_name=username,
+                    target_user=target_user,
+                    enc_key=enc_key
+                )
+                print(f"Relayed shared key from {username} -> {target_user}")
         
 
         print(payload,gtype)
@@ -106,7 +114,19 @@ class linxrtc:
     def authentication_ack_send(conn):
        Packet.send_packet(conn, CONN_ACK, b"")
 
-   
+    @staticmethod 
+    def share_pub_keys(conn):
+        payload_data = {
+            "type": "init_keys",
+            "keys": public_keys
+        }
+        payload = json.dumps(payload_data).encode("utf-8")
+
+        Packet.send_packet(
+            sock=conn,
+            packet_type=I_KEYS,
+            payload=payload
+        )
 
     @staticmethod 
     def authentication_syn(conn,addr):
@@ -146,6 +166,7 @@ class linxrtc:
         if ((username == 'admin' or username == 'nimki' or username == 'narso' or username == 'da') and (password == '1234' or password == 'pass@123')):
             linxrtc.authentication_ack_send(conn)
             broad_cast_count.notify()
+            
             return Session.set(username,conn,addr,public_key)
 
                 

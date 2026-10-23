@@ -38,7 +38,7 @@ class Clienthandle(threading.Thread):
             self.in_conn(session)
 
             linxrtc.broadcast_message(session.public_key.encode(),session.username,U_JOIN)
-            Packet.send_packet(self.conn,I_KEYS,json.dumps({"keys": public_keys}).encode())
+            linxrtc.share_pub_keys(self.conn)
             while session.autharized:
                 linxrtc.w_route(self.conn,session.username)
         except KeyboardInterrupt:
