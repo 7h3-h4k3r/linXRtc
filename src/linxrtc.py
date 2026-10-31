@@ -5,7 +5,7 @@ from lib.Packetconfig import Packet
 import json
 from .getCount import BroadCastCount 
 from . import public_keys
-
+from lib.userclass import User
 CONN_SYN =0X01
 CONN_ACK = 0X02
 GMSG = 0x03
@@ -17,6 +17,12 @@ SHARE_GROUP_KEY=0x60
 RECV_GROUP_KEY=0x63
 U_JOIN=0x61
 I_KEYS=0x62
+EXIT=0x64
+SIG=0x68
+SIG_FAIL=0x67
+EXIT_MSG=0x65
+AUTH_FAIL=0x66
+SIG_PASS=0x68
 broad_cast_count = BroadCastCount()
 broad_cast_count.start()  
 
@@ -30,8 +36,8 @@ class linxrtc:
    
     
     @staticmethod
-    def broadcast_message(payload,username,state=GMSG):
-        if len(payload) < 28:
+    def broadcast_message(payload,username,state=GMSG,inner=False):
+        if len(payload) < 28 and not inner:
             raise ValueError("inValied encryption payload")
 
     
@@ -56,7 +62,7 @@ class linxrtc:
         if len(enc_key) > 65535:
             raise ValueError("Key size cannot exceed 65535 bytes.")
 
-        # 4-byte header: version (1B), sender_name_len (1B), key_len (2B)
+    
         header = struct.pack("!BBH", 
             1, 
             len(encoded_sender), 
@@ -65,7 +71,6 @@ class linxrtc:
 
         packet = header + encoded_sender + enc_key
 
-        # Send to target client's connection
         Packet.send_packet(Clients[target_user].conn, RECV_GROUP_KEY, packet)
         return True
     @staticmethod
@@ -105,11 +110,34 @@ class linxrtc:
                     enc_key=enc_key
                 )
                 print(f"Relayed shared key from {username} -> {target_user}")
+        elif gtype == EXIT:
+            Packet.send_packet(Clients[username].conn,EXIT,b'')
+            Clients[username].conn.close
+            del public_keys[username]
+            linxrtc.broadcast_message(b'',username,EXIT_MSG,inner=True)
+            broad_cast_count.notify()
+        elif gtype == SIG:
+            data = json.loads(payload.decode())
+            linxrtc.signup(data)
         
 
         print(payload,gtype)
-    
+    @staticmethod
+    def auth_send(conn):
+        Packet.send_packet(conn, AUTH_FAIL, b"")
+    @staticmethod
+    def signup(conn,user_info):
+        if not user_info['username'] or not user_info['email'] or not user_info['password']:
+            linxrtc.auth_send(conn)
+            return 
+        if User.signup(user_info):
+            Packet.send_packet(conn,SIG_PASS,b"")
+            return
+        else:
+            linxrtc.auth_send(conn,SIG_FAIL,b"")
 
+        
+   
     @staticmethod
     def authentication_ack_send(conn):
        Packet.send_packet(conn, CONN_ACK, b"")
@@ -131,6 +159,7 @@ class linxrtc:
     @staticmethod 
     def authentication_syn(conn,addr):
         
+        user_info = {}
         payload = None
         try:
             payload = Packet.recv_packet(conn)
@@ -147,12 +176,12 @@ class linxrtc:
 
         username = payload[offset:offset+username_len].decode()
         offset += username_len
-    
+        user_info['username'] = username
         password_len = payload[offset]
         offset +=1 
 
         password = payload[offset:offset+password_len].decode()
-
+        user_info['password'] = password
         offset += password_len
 
         public_key_len = struct.unpack(
@@ -163,16 +192,16 @@ class linxrtc:
         offset+=2
 
         public_key = payload[offset:offset+public_key_len].decode("utf-8")
-        if ((username == 'admin' or username == 'nimki' or username == 'narso' or username == 'da') and (password == '1234' or password == 'pass@123')):
+        
+        if (User.login(user_info)):
             linxrtc.authentication_ack_send(conn)
             broad_cast_count.notify()
-            
             return Session.set(username,conn,addr,public_key)
-
                 
         else:
+            linxrtc.auth_send(conn)
             broad_cast_count.stop()
-            raise linxRTCEx('invalid credentials')
+            
 
             
 

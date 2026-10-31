@@ -11,8 +11,11 @@ class BroadCastCount:
     def broadcast_connection(self):
         payload = struct.pack("!B", len(Clients))
 
-        for client in Clients.values():
-            Packet.send_packet(client.conn, COUNT_CONN, payload)
+        for client in list(Clients.values()):
+            try:
+                Packet.send_packet(client.conn, COUNT_CONN, payload)
+            except Exception as e:
+                print(str(e))
 
     def worker(self):
         while self.running:
