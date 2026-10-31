@@ -1,5 +1,5 @@
 import threading 
-from .linxrtc import linxrtc , U_JOIN,I_KEYS
+from .linxrtc import linxrtc , U_JOIN,I_KEYS ,SIG
 from . import linxRTCEx ,Clients, public_keys
 from lib.Packetconfig  import Packet
 import socket
@@ -29,22 +29,43 @@ class Clienthandle(threading.Thread):
     def run(self):
         session = None
         try:
-            session = linxrtc.authentication_syn(self.conn,self.addr)
+            while True:
+    
+                gtype, payload = Packet.recv_packet(self.conn, gtype=True)
+                if not payload and gtype is None:
+           
+                    break
 
-            if not session or not getattr(session, "autharized", False):
-                print(f"Authentication failed for {self.addr}")
-                return
+                print("Received packet type:", gtype)
 
-            self.in_conn(session)
+                if SIG == gtype:
+                   
+                    linxrtc.signup(self.conn, payload)
+                    continue
 
-            linxrtc.broadcast_message(session.public_key.encode(),session.username,U_JOIN)
-            linxrtc.share_pub_keys(self.conn)
-            while session.autharized:
-                linxrtc.w_route(self.conn,session.username)
+                else:
+                   
+                    session = linxrtc.authentication_syn(self.conn, payload, self.addr)
+                    print('Login Type bro')
+                    if not session or not getattr(session, "autharized", False):
+                        print(f"Authentication failed for {self.addr}")
+                        return
+
+                    self.in_conn(session)
+
+                    linxrtc.broadcast_message(session.public_key.encode(), session.username, U_JOIN)
+                    linxrtc.share_pub_keys(self.conn)
+                    
+                
+                    while session.autharized:
+                        linxrtc.w_route(self.conn, session.username)
+                    
+                    break
+
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            print("Client Error",str(e))
+            print("Client Error", str(e))
         
         finally:
             username = getattr(session, "username", None)
@@ -57,4 +78,4 @@ class Clienthandle(threading.Thread):
                 self.conn.close()
             except Exception:
                 pass
-            
+                
